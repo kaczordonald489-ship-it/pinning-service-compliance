@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IPFS Pin Manager</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-box: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    header {
+      margin-bottom: 3rem;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 1.1rem;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      border-color: #3b82f6;
+    }
+
+    .stat-label {
+      color: #94a3b8;
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+
+    .controls {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .filter-group {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    input[type="text"] {
+      flex: 1;
+      min-width: 250px;
+      padding: 0.75rem 1rem;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 1rem;
+    }
+
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #3b82f6;
+    }
+
+    select {
+      padding: 0.75rem 1rem;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    .category-badge {
+      display: inline-block;
+      padding: 0.25rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .pins-grid {
+      display: grid;
+      gap: 1.5rem;
+    }
+
+    .pin-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 1.5rem;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+
+    .pin-card:hover {
+      transform: translateY(-2px);
+      border-color: #3b82f6;
+    }
+
+    .pin-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: start;
+      margin-bottom: 1rem;
+    }
+
+    .pin-name {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: #f8fafc;
+      margin-bottom: 0.5rem;
+    }
+
+    .pin-cid {
+      font-family: monospace;
+      font-size: 0.875rem;
+      color: #94a3b8;
+      word-break: break-all;
+    }
+
+    .pin-meta {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+      padding-top: 1rem;
+      border-top: 1px solid #334155;
+      font-size: 0.875rem;
+      color: #94a3b8;
+    }
+
+    .pin-tags {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 0.75rem;
+    }
+
+    .tag {
+      padding: 0.25rem 0.5rem;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 3rem;
+      color: #94a3b8;
+    }
+
+    .empty {
+      text-align: center;
+      padding: 3rem;
+      color: #94a3b8;
+    }
+
+    button {
+      padding: 0.75rem 1.5rem;
+      background: #3b82f6;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background: #2563eb;
+    }
+
+    .btn-secondary {
+      background: #475569;
+    }
+
+    .btn-secondary:hover {
+      background: #334155;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>IPFS Pin Manager</h1>
+      <p class="subtitle">Organize and manage your IPFS pinned content</p>
+    </header>
+
+    <div class="stats" id="stats">
+      <div class="stat-card">
+        <div class="stat-label">Total Pins</div>
+        <div class="stat-value" id="totalPins">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Polkadot</div>
+        <div class="stat-value" id="polkadotCount">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Geth</div>
+        <div class="stat-value" id="gethCount">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">NFT</div>
+        <div class="stat-value" id="nftCount">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Web3</div>
+        <div class="stat-value" id="web3Count">-</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Uncategorized</div>
+        <div class="stat-value" id="uncategorizedCount">-</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="filter-group">
+        <input type="text" id="searchInput" placeholder="Search by CID, name, or tags...">
+        <select id="categoryFilter">
+          <option value="">All Categories</option>
+        </select>
+        <button onclick="loadPins()">Refresh</button>
+      </div>
+    </div>
+
+    <div id="pinsContainer">
+      <div class="loading">Loading pins...</div>
+    </div>
+  </div>
+
+  <script>
+    const supabaseUrl = '__SUPABASE_URL__'
+    const supabaseKey = '__SUPABASE_KEY__'
+    const supabase = supabase.createClient(supabaseUrl, supabaseKey)
+
+    let categories = []
+    let allPins = []
+
+    async function loadCategories() {
+      const { data, error } = await supabase
+        .from('pin_categories')
+        .select('*')
+        .order('name')
+
+      if (error) {
+        console.error('Error loading categories:', error)
+        return
+      }
+
+      categories = data || []
+
+      const select = document.getElementById('categoryFilter')
+      categories.forEach(cat => {
+        const option = document.createElement('option')
+        option.value = cat.id
+        option.textContent = cat.name.charAt(0).toUpperCase() + cat.name.slice(1)
+        select.appendChild(option)
+      })
+    }
+
+    async function loadStats() {
+      const { data, error } = await supabase
+        .from('pins')
+        .select('category_id, pin_categories(name)', { count: 'exact' })
+
+      if (error) {
+        console.error('Error loading stats:', error)
+        return
+      }
+
+      const stats = {}
+      data.forEach(pin => {
+        const catName = pin.pin_categories?.name || 'uncategorized'
+        stats[catName] = (stats[catName] || 0) + 1
+      })
+
+      document.getElementById('totalPins').textContent = data.length
+      document.getElementById('polkadotCount').textContent = stats.polkadot || 0
+      document.getElementById('gethCount').textContent = stats.geth || 0
+      document.getElementById('nftCount').textContent = stats.nft || 0
+      document.getElementById('web3Count').textContent = stats.web3 || 0
+      document.getElementById('uncategorizedCount').textContent = stats.uncategorized || 0
+    }
+
+    async function loadPins() {
+      const categoryFilter = document.getElementById('categoryFilter').value
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase()
+
+      let query = supabase
+        .from('pins')
+        .select('*, pin_categories(*)')
+        .order('created_at', { ascending: false })
+
+      if (categoryFilter) {
+        query = query.eq('category_id', categoryFilter)
+      }
+
+      const { data, error } = await query
+
+      if (error) {
+        console.error('Error loading pins:', error)
+        document.getElementById('pinsContainer').innerHTML = '<div class="empty">Error loading pins</div>'
+        return
+      }
+
+      allPins = data || []
+
+      let filteredPins = allPins
+      if (searchTerm) {
+        filteredPins = allPins.filter(pin =>
+          pin.cid.toLowerCase().includes(searchTerm) ||
+          (pin.name && pin.name.toLowerCase().includes(searchTerm)) ||
+          (pin.tags && pin.tags.some(tag => tag.toLowerCase().includes(searchTerm)))
+        )
+      }
+
+      renderPins(filteredPins)
+    }
+
+    function formatBytes(bytes) {
+      if (!bytes) return 'Unknown'
+      const units = ['B', 'KB', 'MB', 'GB', 'TB']
+      let size = bytes
+      let unitIndex = 0
+      while (size >= 1024 && unitIndex < units.length - 1) {
+        size /= 1024
+        unitIndex++
+      }
+      return `${size.toFixed(2)} ${units[unitIndex]}`
+    }
+
+    function formatDate(dateString) {
+      const date = new Date(dateString)
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString()
+    }
+
+    function renderPins(pins) {
+      const container = document.getElementById('pinsContainer')
+
+      if (pins.length === 0) {
+        container.innerHTML = '<div class="empty">No pins found</div>'
+        return
+      }
+
+      container.innerHTML = '<div class="pins-grid">' + pins.map(pin => `
+        <div class="pin-card">
+          <div class="pin-header">
+            <div>
+              ${pin.name ? `<div class="pin-name">${pin.name}</div>` : ''}
+              <div class="pin-cid">${pin.cid}</div>
+            </div>
+            ${pin.pin_categories ? `
+              <span class="category-badge" style="background-color: ${pin.pin_categories.color}20; color: ${pin.pin_categories.color}">
+                ${pin.pin_categories.name}
+              </span>
+            ` : ''}
+          </div>
+
+          <div class="pin-meta">
+            <span>📦 ${formatBytes(pin.size)}</span>
+            <span>📅 ${formatDate(pin.created_at)}</span>
+          </div>
+
+          ${pin.tags && pin.tags.length > 0 ? `
+            <div class="pin-tags">
+              ${pin.tags.map(tag => `<span class="tag">${tag}</span>`).join('')}
+            </div>
+          ` : ''}
+        </div>
+      `).join('') + '</div>'
+    }
+
+    document.getElementById('searchInput').addEventListener('input', loadPins)
+    document.getElementById('categoryFilter').addEventListener('change', loadPins)
+
+    async function init() {
+      await loadCategories()
+      await loadStats()
+      await loadPins()
+    }
+
+    init()
+  </script>
+</body>
+</html>
